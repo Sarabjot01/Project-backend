@@ -1,5 +1,9 @@
 require('dotenv').config();
 
+if (!process.env.MONGO_URL) {
+  throw new Error('MONGO_URL is not defined in .env file');
+}
+
 module.exports = {
   twilio: {
     accountSid: process.env.TWILIO_ACCOUNT_SID,
@@ -9,6 +13,6 @@ module.exports = {
   openai: {
     apiKey: process.env.OPENAI_API_KEY,
   },
-  mongoUrl: process.env.MONGO_URL || 'mongodb://localhost:27017/twilio_chatgpt',
+  mongoUrl: process.env.MONGO_URL,
   serverUrl: process.env.SERVER_URL || 'http://localhost:3000',
 };
