@@ -9,9 +9,6 @@ module.exports = {
   openai: {
     apiKey: process.env.OPENAI_API_KEY,
   },
-  deepgram: {
-    apiKey: process.env.DEEPGRAM_API_KEY,
-  },
   mongoUrl: process.env.MONGO_URL || 'mongodb://localhost:27017/twilio_chatgpt',
   serverUrl: process.env.SERVER_URL || 'http://localhost:3000',
 };
