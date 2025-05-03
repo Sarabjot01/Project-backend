@@ -398,7 +398,7 @@ async function initializePineconeIndex() {
 async function validatePineconeAccess() {
   try {
     const indexes = await pc.listIndexes();
-    console.log('Available Pinecone indexes:', indexes);
+    //console.log('Available Pinecone indexes:', indexes);
     const indexExists = indexes.indexes.some(idx => idx.name === 'voxillos');
     if (!indexExists) {
       throw new Error('Pinecone index "voxillos" does not exist. Ensure the API key has access to the correct project.');
@@ -472,10 +472,6 @@ app.get('/', (req, res) => {
 });
 
 app.use('/twilio', twilioRoutes);
-
-app.get('/health', (req, res) => {
-  res.json({ status: 'ok' });
-});
 
 app.post('/api/query', async (req, res) => {
   try {

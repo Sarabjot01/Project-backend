@@ -226,10 +226,11 @@ const { storeConversation, queryPinecone } = require('../services/pinecone');
 
 const router = express.Router();
 const twilioClient = twilio(config.twilio.accountSid, config.twilio.authToken);
+const sid =[];
 
 function containsHarmfulContent(input) {
   const harmfulKeywords = ["harmful", "offensive", "inappropriate", "personal", "drug", "trafficking", "illegal"];
-  return harmfulKeywords.some((keyword) => input.toLowerCase().includes(keyword));
+  return harmfulKeywords.some((keyword) => String(input).toLowerCase().includes(keyword));
 }
 
 router.get('/voice', (req, res) => {
@@ -237,15 +238,28 @@ router.get('/voice', (req, res) => {
 });
 
 router.post('/voice', (req, res) => {
+  const twiml = new VoiceResponse();
+  const callSid = req.body.CallSid;
   try {
-    const twiml = new VoiceResponse();
+    console.log("Call Sid :", callSid)
+    
+    //check if user called first time or not
+    if(!sid.includes(callSid)){
+      twiml.say({voice:'Polly.Kajal-Neural'}, "Hello, thank You for contacting me,  Ask me Your Question ")
+    }
+    else{
+      twiml.say({voice:'Polly.Kajal-Neural'},"Ask me Your next Question");
+    }
+
+    sid.push(callSid);
+
     twiml.gather({
-      input: 'speech',
-      action: '/twilio/gather',
-      speechTimeout: 'auto',
-      hints: 'help, information, support'
-    }).say({ voice: 'Polly.Kajal-Neural' }, 'Hello! I’m your assistant. What would you like to know?');
-    console.log('Voice webhook TwiML:', twiml.toString());
+      input:'speech',
+      speechTimeout:'auto',
+      speechModel:'experimental_conversations',
+      action:'/twilio/gather',
+      method:'POST',
+    });
     res.type('text/xml');
     res.send(twiml.toString());
   } catch (error) {
@@ -279,10 +293,10 @@ router.post('/inbound', (req, res) => {
 });
 
 router.post('/gather', async (req, res) => {
+  const twiml = new VoiceResponse();
   try {
-    console.log('Received gather webhook:', JSON.stringify(req.body, null, 2));
+    // console.log('Received gather webhook:', JSON.stringify(req.body, null, 2));
     if (!req.body) {
-      const twiml = new VoiceResponse();
       twiml.say({ voice: 'Polly.Joanna-Neural' }, 'Invalid request. Please try again.');
       console.log('Gather error TwiML:', twiml.toString());
       res.type('text/xml');
@@ -292,16 +306,14 @@ router.post('/gather', async (req, res) => {
 
     const { CallSid, From, To, SpeechResult } = req.body;
     if (!CallSid || !From || !To) {
-      const twiml = new VoiceResponse();
       twiml.say({ voice: 'Polly.Joanna-Neural' }, 'Missing call details. Please try again.');
-      console.log('Gather error TwiML:', twiml.toString());
+      //console.log('Gather error TwiML:', twiml.toString());
       res.type('text/xml');
       res.send(twiml.toString());
       return;
     }
 
     if (!SpeechResult) {
-      const twiml = new VoiceResponse();
       twiml.say({ voice: 'Polly.Joanna-Neural' }, 'Sorry, I didn’t hear anything. Please try again.');
       twiml.redirect('/twilio/voice');
       console.log('Gather no speech TwiML:', twiml.toString());
@@ -315,41 +327,68 @@ router.post('/gather', async (req, res) => {
     
     // Check if the query is harmful before proceeding
     if (containsHarmfulContent(SpeechResult)) {
-      response = "I cannot assist with that request.";
-      console.log(`Harmful query detected: ${SpeechResult}. Storing in Pinecone.`);
-      await storeConversation({
-        callSid: CallSid,
-        userInput: SpeechResult,
-        assistantResponse: "[Unresponded due to harmful content]"
-      });
-      console.log(`Stored harmful query in Pinecone: ${SpeechResult}, CallSid: ${CallSid}`);
-    } else {
-      // Query Pinecone for non-harmful queries
+      // Query Pinecone for harmful queries
       const storedData = await queryPinecone(SpeechResult);
+      //Check query in pinecone -> say it -> redirect to /voice
       if (storedData && storedData.response !== "[Unresponded due to harmful content]") {
-        response = storedData.response;
-        console.log(`Using Pinecone response for query "${SpeechResult}": ${response}`);
-      } else {
-        // If no valid Pinecone match, query Gemini
-        response = await processQuery(SpeechResult);
-        if (containsHarmfulContent(response)) {
-          response = "I cannot assist with that request.";
-          console.log(`Harmful response detected from Gemini for query: ${SpeechResult}. Storing in Pinecone.`);
-          await storeConversation({
-            callSid: CallSid,
-            userInput: SpeechResult,
-            assistantResponse: "[Unresponded due to harmful content in response]"
-          });
-          console.log(`Stored harmful response in Pinecone: ${SpeechResult}, CallSid: ${CallSid}`);
-        }
-        // Do not store successful Gemini responses in Pinecone
+        const responseFromPinecone = storedData.response;
+        console.log(`Using Pinecone response for query "${SpeechResult}": ${responseFromPinecone}`);
+        twiml.say({ voice: 'Polly.Kajal-Neural' }, responseFromPinecone);
+        twiml.pause({ length: 2 });
+        twiml.redirect('/twilio/voice')
+      }else{
+        //NEW harmful query detected -> store in pinecone -> say response -> hangup
+        console.log(`Harmful query detected: ${SpeechResult}. Storing in Pinecone.`);
+        await storeConversation({
+          callSid: CallSid,
+          userInput: SpeechResult,
+          assistantResponse: "[Unresponded due to harmful content]"
+        });
+        console.log(`Stored harmful query in Pinecone: ${SpeechResult}, CallSid: ${CallSid}`);
+        response = "I cannot assist with that request. Thank You";
+        twiml.say({voice: 'Polly.Kajal-Neural'}, response);
+        twiml.hangup();
+      } 
+    } 
+    else {
+      // If no valid Pinecone match, query Gemini
+      // query is not harmful query->gemini -> if response.type-> dial transfer call OR if response.type-> fallback store (NOT STORING** USING TOOL_CAll)
+      response = await processQuery(SpeechResult);
+
+      if(response.type === 'dial'){
+        twiml.say({ voice: 'Polly.Kajal-Neural' }, "Transferring you now...");
+        twiml.dial(response.number); 
+      } 
+      else if( response.type === 'fallback'){
+        await storeConversation({
+          callSid: CallSid,
+          userInput: SpeechResult,
+          assistantResponse: "[Unresponded due to harmful content in response]"
+        });
+      }
+      else {
+        twiml.say({ voice: 'Polly.Kajal-Neural' }, response.message);
+        twiml.pause({ length: 2 });
+        twiml.redirect('/twilio/voice');
       }
     }
 
-    const twiml = new VoiceResponse();
-    twiml.say({ voice: 'Polly.Joanna-Neural' }, response);
-    twiml.redirect('/twilio/voice');
-    console.log('Gather response TwiML:', twiml.toString());
+      // Why are we storing negative responses from gemini ? :))
+
+      // if (containsHarmfulContent(response)) {
+      //   response = "I cannot assist with that request.";
+      //   console.log(`Harmful response detected from Gemini for query: ${SpeechResult}. Storing in Pinecone.`);
+      //   await storeConversation({
+      //     callSid: CallSid,
+      //     userInput: SpeechResult,
+      //     assistantResponse: "[Unresponded due to harmful content in response]"
+      //   });
+      //   console.log(`Stored harmful response in Pinecone: ${SpeechResult}, CallSid: ${CallSid}`);
+      // }
+
+    //console.log("Response:", response.message) // added for debugging
+    //twiml.say({ voice: 'Polly.Joanna-Neural' }, response.message);
+    //twiml.redirect('/twilio/voice');
     res.type('text/xml');
     res.send(twiml.toString());
   } catch (error) {
