@@ -447,15 +447,20 @@ async function checkPineconeForQuery(query) {
       for (const match of results.matches) {
         console.log('Match details:', match);
         if (match.score > 0.85 && match.metadata && match.metadata.userInput) {
-          const normalizedQuery = match.metadata.userInput.toLowerCase().trim();
-          const normalizedInput = query.toLowerCase().trim();
-          if (normalizedQuery === normalizedInput && match.metadata.assistantResponse) {
-            console.log(`Found matching response in Pinecone for query: ${query}, Score: ${match.score}`);
-            return {
-              response: match.metadata.assistantResponse,
-              callSid: match.id
-            };
-          }
+          console.log(`Found matching response in Pinecone for query: ${query}, Score: ${match.score}`);
+          return {
+            response: match.metadata.assistantResponse,
+            callSid: match.id
+          };
+          // const normalizedQuery = match.metadata.userInput.toLowerCase().trim();
+          // const normalizedInput = query.toLowerCase().trim();
+          // if (normalizedQuery === normalizedInput && match.metadata.assistantResponse) {
+          //   console.log(`Found matching response in Pinecone for query: ${query}, Score: ${match.score}`);
+          //   return {
+          //     response: match.metadata.assistantResponse,
+          //     callSid: match.id
+          //   };
+          // }
         }
       }
     }

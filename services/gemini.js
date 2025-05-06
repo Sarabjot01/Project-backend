@@ -62,12 +62,12 @@ async function processQuery(query) {
   };
 
   //passed as chatHistory with history
-  const contents = [
-    {
-      role: 'user',
-      parts: [{ text: query }]
-    }
-  ];
+  // const contents = [
+  //   {
+  //     role: 'user',
+  //     parts: [{ text: query }]
+  //   }
+  // ];
 
   chatHistory.push({
     role:'user',
@@ -101,7 +101,7 @@ async function processQuery(query) {
           let result;
     
           if(tool_call.name==='transferToHuman'){
-            result = setHumanTransfer('dial','+916239240395');
+            result = setHumanTransfer('dial','+919781841490');
             //result = setHumanTransfer(tool_call.args.transferType, tool_call.args.phoneNumber)
             const obj ={
               type: result.type,

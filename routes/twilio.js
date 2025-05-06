@@ -229,7 +229,7 @@ const twilioClient = twilio(config.twilio.accountSid, config.twilio.authToken);
 const sid =[];
 
 function containsHarmfulContent(input) {
-  const harmfulKeywords = ["harmful", "offensive", "inappropriate", "personal", "drug", "trafficking", "illegal"];
+  const harmfulKeywords = ["harmful", "offensive", "inappropriate", "personal", "drug", "trafficking", "illegal","guns","gun","kill","bomb", "terror","sucide","murder"];
   return harmfulKeywords.some((keyword) => String(input).toLowerCase().includes(keyword));
 }
 
@@ -367,6 +367,7 @@ router.post('/gather', async (req, res) => {
         });
       }
       else {
+        console.log("Response :", response.message);
         twiml.say({ voice: 'Polly.Kajal-Neural' }, response.message);
         twiml.pause({ length: 2 });
         twiml.redirect('/twilio/voice');
