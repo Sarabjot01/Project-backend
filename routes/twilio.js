@@ -333,7 +333,7 @@ router.post('/gather', async (req, res) => {
       if (storedData && storedData.response !== "[Unresponded due to harmful content]") {
         const responseFromPinecone = storedData.response;
         console.log(`Using Pinecone response for query "${SpeechResult}": ${responseFromPinecone}`);
-        twiml.say({ voice: 'Polly.Kajal-Neural' }, responseFromPinecone);
+        twiml.say({voice: 'Polly.Kajal-Neural'}, responseFromPinecone);
         twiml.pause({ length: 2 });
         twiml.redirect('/twilio/voice')
       }else{
@@ -345,7 +345,7 @@ router.post('/gather', async (req, res) => {
           assistantResponse: "[Unresponded due to harmful content]"
         });
         console.log(`Stored harmful query in Pinecone: ${SpeechResult}, CallSid: ${CallSid}`);
-        response = "I cannot assist with that request. Thank You";
+        response = "I cannot assist with that request right now. Thank You";
         twiml.say({voice: 'Polly.Kajal-Neural'}, response);
         twiml.hangup();
       } 
